@@ -1,0 +1,4 @@
+*** Touch Payments Changelog ***
+
+2013.11.20 - version 1.0
+ * First Release
