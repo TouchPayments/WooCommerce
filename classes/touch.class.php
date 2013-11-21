@@ -54,12 +54,10 @@ class WC_Gateway_Touch extends WC_Payment_Gateway {
     protected $redirect_url = '';
 
 	public function __construct() {
-        global $woocommerce;
         $this->id			= 'touch';
         $this->method_title = __( 'Touch', 'woothemes' );
         $this->icon 		= $this->plugin_url() . '/assets/images/icon.png';
         $this->has_fields 	= true;
-        $this->debug_email 	= get_option( 'admin_email' );
 
 		// Setup available countries.
 		$this->available_countries = array( 'AU' );
@@ -155,18 +153,6 @@ class WC_Gateway_Touch extends WC_Payment_Gateway {
 											'type' => 'text',
 											'description' => __( 'This is the merchant key, received from Touch Payments.', 'woothemes' ),
 											'default' => ''
-										),
-							'send_debug_email' => array(
-											'title' => __( 'Send Debug Emails', 'woothemes' ),
-											'type' => 'checkbox',
-											'label' => __( 'Send debug e-mails for transactions through the Touch Payments gateway (sends on successful transaction as well).', 'woothemes' ),
-											'default' => 'yes'
-										),
-							'debug_email' => array(
-											'title' => __( 'Who Receives Debug E-mails?', 'woothemes' ),
-											'type' => 'text',
-											'description' => __( 'The e-mail address to which debugging error e-mails are sent when in test mode.', 'woothemes' ),
-											'default' => get_option( 'admin_email' )
 										)
 							);
 
@@ -271,6 +257,9 @@ class WC_Gateway_Touch extends WC_Payment_Gateway {
         if(isset($response->error)) {
             throw new Exception($response->error->message);
         }
+        // We need to persist the order id so we can retrieve it from token when calling back
+        session_start();
+        $_SESSION[$response->result->token] = $order->id;
 
         /**
          * also put the token on the order
@@ -409,22 +398,92 @@ class WC_Gateway_Touch extends WC_Payment_Gateway {
 		echo $this->generate_touch_form( $order );
 	} // End receipt_page()
 
-	/**
-	 * Check Touch ITN validity.
-	 *
-	 * @param array $data
-	 * @since 1.0.0
-	 */
+    /**
+     * Check Touch Response validity.
+     *
+     * @param array $data
+     *
+     * @return bool
+     * @since 1.0.0
+     */
 	function check_itn_request_is_valid( $data ) {
-		global $woocommerce;
+        session_start();
+
+        if (empty($data['token']) && empty($_SESSION[$data['token']])) {
+            // Invalid request
+            return false;
+        }
+
+        $result = $this->api->getOrderByTokenStatus($data['token']);
+        $order  = new WC_Order($_SESSION[$data['token']]);
+
+        if (isset($result->error)) {
+            //@todo How to handle errors in this platform??
+            $this->_redirect('checkout/onepage/failure/');
+            return false;
+        }
+        if ($result->result->status != 'pending') {
+            $message = null;
+            if (isset($result->reasonCancelled)) {
+                $message = 'Touch Payments returned and said:' . $result->reasonCancelled;
+            } else {
+                $message = 'Got an error:' . var_export($result, true);
+            }
+
+            $order->update_status(
+                'failed',
+                sprintf(
+                    __('Payment via Touch Payments failed with status: %s (%s)', 'woothemes'),
+                    $result->result->status,
+                    $message
+                )
+            );
+        } else {
+
+            /**
+             * @TODO: All the fee stuff in Wordpress...
+             * adjust the touch fee that comes back from
+             * the API in case the fee has changed
+             */
+//            if ((float) $result->result->fee > 0) {
+//                if ($order->getTouchFeeAmount() != $result->result->fee) {
+//                    $order->setGrandTotal($order->getGrandTotal() - $order->getTouchFeeAmount() + $result->result->fee);
+//                    $order->setTouchFeeAmount((float) $result->result->fee);
+//                    $order->setTouchBaseFeeAmount((float) $result->result->fee);
+//                    $order->save();
+//                }
+//            }
+            /**
+             * - Approve the order in touch
+             * - set a transaction ID
+             * - set Order to paid
+             * - take care of invoice shit
+             */
+            $apprReturn = $this->api->approveOrder($data['token'], $order->id, $order->get_total());
+
+
+            if ($apprReturn->result->status == 'approved') {
+
+                $order->add_order_note( __( 'Touch Payments checkout completed', 'woothemes' ) );
+                $order->payment_complete();
+
+                return true;
+
+            } else {
+                /*
+                 * @TODO: Handle error
+                 */
+                return false;
+            }
+        }
+
+return;
+
+
+
 
 		$pfError = false;
 		$pfDone = false;
-		$pfDebugEmail = $this->settings['debug_email'];
-
-		if ( ! is_email( $pfDebugEmail ) ) {
-			$pfDebugEmail = get_option( 'admin_email' );
-		}
 
 		$sessionid = $data['custom_str1'];
         $transaction_id = $data['pf_payment_id'];
@@ -546,39 +605,12 @@ class WC_Gateway_Touch extends WC_Payment_Gateway {
 					$order->add_order_note( __( 'ITN payment completed', 'woothemes' ) );
 					$order->payment_complete();
 
-                    if( $this->settings['testmode'] == 'yes' && $this->settings['send_debug_email'] == 'yes' ) {
-                        $subject = "Touch Payments ITN on your site";
-                        $body =
-                            "Hi,\n\n".
-                            "A Touch transaction has been completed on your website\n".
-                            "------------------------------------------------------------\n".
-                            "Site: ". $vendor_name ." (". $vendor_url .")\n".
-                            "Purchase ID: ". $data['m_payment_id'] ."\n".
-                            "Touch Payments Transaction ID: ". $data['pf_payment_id'] ."\n".
-                            "Touch Payments Payment Status: ". $data['payment_status'] ."\n".
-                            "Order Status Code: ". $order->status;
-                        wp_mail( $pfDebugEmail, $subject, $body );
-                    }
                     break;
 
     			case 'FAILED':
                     $this->log( '- Failed' );
 
                     $order->update_status( 'failed', sprintf(__('Payment %s via ITN.', 'woothemes' ), strtolower( sanitize( $data['payment_status'] ) ) ) );
-
-					if( $this->settings['testmode'] == 'yes' && $this->settings['send_debug_email'] == 'yes' ) {
-	                    $subject = "Touch ITN Transaction on your site";
-	                    $body =
-	                        "Hi,\n\n".
-	                        "A failed Touch Payments transaction on your website requires attention\n".
-	                        "------------------------------------------------------------\n".
-	                        "Site: ". $vendor_name ." (". $vendor_url .")\n".
-	                        "Purchase ID: ". $order->id ."\n".
-	                        "User ID: ". $order->user_id ."\n".
-	                        "Touch Payments Transaction ID: ". $data['pf_payment_id'] ."\n".
-	                        "Touch Payments Payment Status: ". $data['payment_status'];
-	                    wp_mail( $pfDebugEmail, $subject, $body );
-                    }
         			break;
 
     			case 'PENDING':
@@ -597,54 +629,6 @@ class WC_Gateway_Touch extends WC_Payment_Gateway {
         // If an error occurred
         if( $pfError ) {
             $this->log( 'Error occurred: '. $pfErrMsg );
-
-            if( $this->settings['testmode'] == 'yes' && $this->settings['send_debug_email'] == 'yes' ) {
-	            $this->log( 'Sending email notification' );
-
-	             // Send an email
-	            $subject = "Touch Payments ITN error: ". $pfErrMsg;
-	            $body =
-	                "Hi,\n\n".
-	                "An invalid Touch Payments transaction on your website requires attention\n".
-	                "------------------------------------------------------------\n".
-	                "Site: ". $vendor_name ." (". $vendor_url .")\n".
-	                "Remote IP Address: ".$_SERVER['REMOTE_ADDR']."\n".
-	                "Remote host name: ". gethostbyaddr( $_SERVER['REMOTE_ADDR'] ) ."\n".
-	                "Purchase ID: ". $order->id ."\n".
-	                "User ID: ". $order->user_id ."\n";
-	            if( isset( $data['pf_payment_id'] ) )
-	                $body .= "Touch Payments Transaction ID: ". $data['pf_payment_id'] ."\n";
-	            if( isset( $data['payment_status'] ) )
-	                $body .= "Touch Payments Payment Status: ". $data['payment_status'] ."\n";
-	            $body .=
-	                "\nError: ". $pfErrMsg ."\n";
-
-	            switch( $pfErrMsg ) {
-	                case PF_ERR_AMOUNT_MISMATCH:
-	                    $body .=
-	                        "Value received : ". $data['amount_gross'] ."\n".
-	                        "Value should be: ". $order->order_total;
-	                    break;
-
-	                case PF_ERR_ORDER_ID_MISMATCH:
-	                    $body .=
-	                        "Value received : ". $data['custom_str3'] ."\n".
-	                        "Value should be: ". $order->id;
-	                    break;
-
-	                case PF_ERR_SESSION_ID_MISMATCH:
-	                    $body .=
-	                        "Value received : ". $data['custom_str1'] ."\n".
-	                        "Value should be: ". $order->id;
-	                    break;
-
-	                // For all other errors there is no need to add additional information
-	                default:
-	                    break;
-	            }
-
-	            wp_mail( $pfDebugEmail, $subject, $body );
-            }
         }
 
         // Close log
@@ -659,10 +643,10 @@ class WC_Gateway_Touch extends WC_Payment_Gateway {
 	 * @since 1.0.0
 	 */
 	function check_itn_response() {
-		$_POST = stripslashes_deep( $_POST );
+		$_REQUEST = stripslashes_deep( $_REQUEST );
 
-		if ( $this->check_itn_request_is_valid( $_POST ) ) {
-			do_action( 'valid-touch-standard-itn-request', $_POST );
+		if ( $this->check_itn_request_is_valid( $_REQUEST ) ) {
+			do_action( 'valid-touch-standard-itn-request', $_REQUEST );
 		}
 	} // End check_itn_response()
 
@@ -672,17 +656,14 @@ class WC_Gateway_Touch extends WC_Payment_Gateway {
 	 * @since 1.0.0
 	 */
 	function successful_request( $posted ) {
-		if ( ! isset( $posted['custom_str3'] ) && ! is_numeric( $posted['custom_str3'] ) ) { return false; }
 
-		$order_id = (int) $posted['custom_str3'];
-		$order_key = esc_attr( $posted['custom_str1'] );
+		$order_id = $_SESSION[$posted['token']];
 		$order = new WC_Order( $order_id );
 
-		if ( $order->order_key !== $order_key ) { exit; }
 
 		if ( $order->status !== 'completed' ) {
 			// We are here so lets check status and do actions
-			switch ( strtolower( $posted['payment_status'] ) ) {
+			switch ( strtolower($order->status) ) {
 				case 'completed' :
 					// Payment completed
 					$order->add_order_note( __( 'ITN payment completed', 'woothemes' ) );
@@ -693,11 +674,12 @@ class WC_Gateway_Touch extends WC_Payment_Gateway {
 				case 'failed' :
 				case 'voided' :
 					// Failed order
-					$order->update_status( 'failed', sprintf(__('Payment %s via ITN.', 'woothemes' ), strtolower( sanitize( $posted['payment_status'] ) ) ) );
+                    // @TODO: uncomment
+					//$order->update_status( 'failed', sprintf(__('Payment %s via ITN.', 'woothemes' ), strtolower( $order->status ) ) );
 				break;
 				default:
 					// Hold order
-					$order->update_status( 'on-hold', sprintf(__('Payment %s via ITN.', 'woothemes' ), strtolower( sanitize( $posted['payment_status'] ) ) ) );
+					//$order->update_status( 'on-hold', sprintf(__('Payment %s via ITN.', 'woothemes' ), strtolower( sanitize( $posted['payment_status'] ) ) ) );
 				break;
 			} // End SWITCH Statement
 
