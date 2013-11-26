@@ -389,6 +389,7 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
         $customer->email            = $order->billing_email;
         $customer->firstName        = $order->billing_first_name;
         $customer->lastName         = $order->billing_last_name;
+        $customer->telephoneMobile  = $order->billing_phone;
 
         $touchOrder = new Touch_Order();
         $grandTotal = $order->order_total - (isset($_SESSION['touch_fee']) ? $_SESSION['touch_fee'] : 0);

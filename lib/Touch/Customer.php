@@ -23,4 +23,8 @@ class Touch_Customer extends Touch_Object {
      */
     public $gender;
 
+    /**
+     * @var String
+     */
+    public $telephoneMobile;
 }
