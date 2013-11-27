@@ -45,11 +45,21 @@ class Touch_Api
      * @param float $grandTotal
      * @return type
      */
-    public function getFee($grandTotal){
+    public function getFee($grandTotal)
+    {
         $response = $this->_touchClient->getFee($grandTotal);
         return $response;
     }
 
+    /**
+     *
+     * @return type
+     */
+    public function getMaximumCheckoutValue()
+    {
+        $response = $this->_touchClient->getMaximumCheckoutValue();
+        return $response;
+    }
 
     public function getOrderByTokenStatus($token){
         $response = $this->_touchClient->getOrderStatusFromToken($token);

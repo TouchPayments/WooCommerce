@@ -20,7 +20,7 @@ class Touch_Client {
     }
 
     /**
-     * 
+     *
      * @param string $refNr
      * @param string $reason
      * @return type
@@ -29,9 +29,9 @@ class Touch_Client {
         $data = array($this->_apiKey, $refNr, $reason);
         return $this->_callMethod('setOrderStatusCancelled', $data);
     }
-    
+
     /**
-     * 
+     *
      * @param string $refNr
      * @param mixed $articleLines
      */
@@ -40,30 +40,36 @@ class Touch_Client {
         $data = array($this->_apiKey, $refNr);
         return $this->_callMethod('setOrderStatusShipped', $data);
     }
-    
+
     public function generateOrder(Touch_Order $order){
         $data = array($this->_apiKey,$order->toArray());
         return $this->_callMethod('generateOrder', $data);
     }
-    
+
     public function getOrderStatusFromToken($token){
         $data = array($this->_apiKey,$token);
         return $this->_callMethod('getOrderStatusFromToken', $data);
     }
-    
-    
+
+
     public function approveOrderByToken($token, $refNumber, $grandTotal)
     {
         $data = array($this->_apiKey,$token, $refNumber, $grandTotal);
         return $this->_callMethod('approveOrderByToken', $data);
     }
-    
+
+    public function getMaximumCheckoutValue()
+    {
+        $data = array($this->_apiKey);
+        return $this->_callMethod('getMaximumCheckoutValue', $data);
+    }
+
     public function getFee($grandTotal)
     {
         $data = array($this->_apiKey,$grandTotal);
         return $this->_callMethod('getFeeAmount', $data);
     }
-    
+
     private function _callMethod($method, $data)
     {
         $params = array(

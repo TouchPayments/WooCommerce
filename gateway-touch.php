@@ -43,7 +43,6 @@ function woocommerce_touch_init() {
 
     add_action( 'woocommerce_calculate_totals', 'recalculate_totals');
     wp_enqueue_script( 'wc-add-extra-charges', plugins_url() . '/' . end(explode('/', __DIR__)) . '/assets/touch.js', array('wc-checkout'), false, true );
-
 }
 
 /**
