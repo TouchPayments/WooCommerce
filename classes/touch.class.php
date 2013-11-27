@@ -90,13 +90,6 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
             $this->redirect_url = 'https://test.touchpayments.com.au/check/index/token/';
         }
 
-        // Test for now
-        if ( $this->settings['testmode'] == 'yes' ) {
-			$this->url = 'http://fatty.git/api';
-			$this->validate_url = 'http://fatty.git/api';
-			$this->redirect_url = 'http://fatty.git/check/index/token/';
-		}
-
         $this->response_url = add_query_arg('wc-api', 'WC_Gateway_Touch', home_url('/'));
 
         $this->api = new Touch_Api($this->url, $this->merchant_key, $this->response_url);
