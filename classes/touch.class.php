@@ -375,7 +375,7 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
             $touchItem->sku = $product->get_sku();
             $touchItem->quantity = $item['qty'];
             $touchItem->description = $item['name'];
-            $touchItem->price = $item['line_total'];
+            $touchItem->price = $item['line_total'] / $item['qty'];
 
             preg_match('/< *img[^>]*src *= *["\']?([^"\']*)/i', $product->get_image(), $image);
             if (count($image) > 1) {
