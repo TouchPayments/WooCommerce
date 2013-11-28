@@ -523,6 +523,12 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
              */
             if ((float)$result->result->fee > 0) {
                 if (isset($_SESSION['touch_fee']) && $_SESSION['touch_fee'] != $result->result->fee) {
+
+                    // Adjust grand total accordingly
+                    $order->order_total = $order->order_total - $_SESSION['touch_fee'] + $result->result->fee;
+                    update_post_meta($order->id, '_order_total', $order->order_total);
+
+                    // Reset fee
                     $_SESSION['touch_fee'] = $result->result->fee;
                 }
             }
