@@ -369,9 +369,10 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
          */
         foreach ($items as $item) {
             $product = get_product($item['product_id']);
+            $sku     = $product->get_sku();
 
             $touchItem = new Touch_Item();
-            $touchItem->sku = $product->get_sku();
+            $touchItem->sku = empty($sku) ? $product->id : $sku;
             $touchItem->quantity = $item['qty'];
             $touchItem->description = $item['name'];
             $touchItem->price = $item['line_total'] / $item['qty'];
