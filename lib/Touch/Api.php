@@ -26,8 +26,7 @@ class Touch_Api
      */
     public function setOrderItemsShipped($refNr)
     {
-        $response = $this->_touchClient->setOrderStatusShipped($refNr);
-        return $response;
+        return $this->_touchClient->setOrderStatusShipped($refNr);
     }
 
     /**
@@ -37,8 +36,7 @@ class Touch_Api
      */
     public function generateOrder(Touch_Order $order)
     {
-         $response = $this->_touchClient->generateOrder($order);
-         return $response;
+         return $this->_touchClient->generateOrder($order);
     }
     /**
      *
@@ -47,8 +45,7 @@ class Touch_Api
      */
     public function getFee($grandTotal)
     {
-        $response = $this->_touchClient->getFee($grandTotal);
-        return $response;
+        return $this->_touchClient->getFee($grandTotal);
     }
 
     /**
@@ -57,13 +54,20 @@ class Touch_Api
      */
     public function getMaximumCheckoutValue()
     {
-        $response = $this->_touchClient->getMaximumCheckoutValue();
-        return $response;
+        return $this->_touchClient->getMaximumCheckoutValue();
+    }
+
+    /**
+     *
+     * @return type
+     */
+    public function isApiActive()
+    {
+        return $this->_touchClient->isApiActive();
     }
 
     public function getOrderByTokenStatus($token){
-        $response = $this->_touchClient->getOrderStatusFromToken($token);
-        return $response;
+        return $this->_touchClient->getOrderStatusFromToken($token);
     }
 
     /**
@@ -75,8 +79,7 @@ class Touch_Api
      */
     public function approveOrder($token, $refNumber, $grandTotal)
     {
-        $response = $this->_touchClient->approveOrderByToken($token, $refNumber, $grandTotal);
-        return $response;
+        return $this->_touchClient->approveOrderByToken($token, $refNumber, $grandTotal);
     }
 
 

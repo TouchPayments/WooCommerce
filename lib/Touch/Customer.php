@@ -27,4 +27,5 @@ class Touch_Customer extends Touch_Object {
      * @var String
      */
     public $telephoneMobile;
+
 }

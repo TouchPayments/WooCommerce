@@ -45,7 +45,7 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
 
     const PAYMENT_METHOD_TOUCH = 'touch';
 
-    public $version = '1.0.0';
+    public $version = '1.0.1';
 
     /**
      * @var Touch_Api null
@@ -54,7 +54,15 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
 
     protected $redirect_url = '';
 
+    /**
+     * @var float Price limit for the cart in order to be able to use Touch
+     */
     protected $cart_limit;
+
+    /**
+     * @var boolean Indicates whether Touch is active or not
+     */
+    protected $is_api_active;
 
     public function __construct()
     {
@@ -98,6 +106,10 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
         // Cart limit that will enable Touch as a payment method
         $result = $this->api->getMaximumCheckoutValue();
         $this->cart_limit = $result->result;
+
+        // See if the API is active at all
+        $result = $this->api->isApiActive();
+        $this->is_api_active = $result->result;
 
         add_action('woocommerce_api_wc_gateway_touch', array($this, 'check_itn_response'));
         add_action('valid-touch-standard-itn-request', array($this, 'successful_request'));
@@ -202,7 +214,7 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
         $is_available_currency = in_array($user_currency, $this->available_currencies);
 
         if ($is_available_currency && $this->enabled == 'yes' && $this->settings['merchant_key'] != '' &&
-            $woocommerce->cart->subtotal <= $this->cart_limit) {
+            $this->is_api_active && $woocommerce->cart->subtotal <= $this->cart_limit) {
             $is_available = true;
         }
 
