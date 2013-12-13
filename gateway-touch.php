@@ -5,7 +5,7 @@
 	Description: Integrate Touch Payments in your WooCommerce shop.
 	Version: 1.0.1
 	Author: TouchPayments
-	Author URI: http://touchpayments.com/
+	Author URI: http://touchpayments.com.au/
 	Requires at least: 3.5
 	Tested up to: 3.5
 */

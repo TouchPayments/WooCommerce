@@ -157,7 +157,7 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
                 'type'        => 'text',
                 'description' => __('This controls the description which the user sees during checkout.', 'woothemes'),
                 'default'     => __(
-                    'Checkout with Touch Payments and pay after you receive your products.',
+                    'Select Touch to pay only after receiving your order so you can touch your latest online purchase before being charged for it.',
                     'woothemes'
                 )
             ),
