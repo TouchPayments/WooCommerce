@@ -290,63 +290,90 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
      */
     public function generate_touch_form($order_id)
     {
-
+        session_start();
         global $woocommerce;
 
         $order = new WC_Order($order_id);
-        $response = $this->api->generateOrder($this->getTouchOrder($order));
 
-        if (isset($response->error)) {
-            throw new Exception($response->error->message);
+        if (empty($_REQUEST['status']) || $_REQUEST['status'] != 'sms-error') {
+            $response = $this->api->generateOrder($this->getTouchOrder($order));
+
+            if (isset($response->error)) {
+                throw new Exception($response->error->message);
+            }
+            // We need to persist the order id so we can retrieve it from token when calling back
+            $_SESSION[$response->result->token] = $order->id;
+            $_SESSION['current_token'] = $response;
         }
-        // We need to persist the order id so we can retrieve it from token when calling back
-        session_start();
-        $_SESSION[$response->result->token] = $order->id;
 
-        /**
-         * also put the token on the order
-         */
-        $redirectUrl = $this->redirect_url . $response->result->token;
+        // To make sure we don't have multiple order creations upon page refreshes
+        $response = $_SESSION['current_token'];
 
-        $touch_args_array = array();
+        if (isset($response->result->approvalSmsSent) && $response->result->approvalSmsSent) {
+            $html = '
+            <form action="/?wc-api=WC_Gateway_Touch" method="post" id="touch_payment_form">
+            <input type="hidden" name="token" value="' . $response->result->token . '">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <img src="' . $this->plugin_url() . '/assets/images/touch-logo.png" width="203" height="34">
+                </div>
+                <p>We have sent you a code via SMS to the mobile number you registered with Touch Payments. Please enter it
+                in the box below to complete your purchase.
+                <div style="text-align: center; padding: 10px auto 30px;">';
 
-        return '<form action="' . $redirectUrl . '" method="post" id="touch_payment_form">
-				' . implode('', $touch_args_array) . '
-				<input type="submit" class="button-alt" id="submit_touch_payment_form" value="' . __(
-            'Pay via Touch Payments',
-            'woothemes'
-        ) . '" /> <a class="button cancel" href="' . $order->get_cancel_order_url() . '">' . __(
-            'Cancel order &amp; restore cart',
-            'woothemes'
-        ) . '</a>
-				<script type="text/javascript">
-					jQuery(function(){
-						jQuery("body").block(
-							{
-								message: "<img src=\"' . $woocommerce->plugin_url()
-        . '/assets/images/ajax-loader.gif\" alt=\"Redirecting...\" />' . __(
-            'Thank you for your order. We are now redirecting you to Touch Payments to make payment.',
-            'woothemes'
-        ) . '",
-								overlayCSS:
-								{
-									background: "#fff",
-									opacity: 0.6
-								},
-								css: {
-							        padding:        20,
-							        textAlign:      "center",
-							        color:          "#555",
-							        border:         "3px solid #aaa",
-							        backgroundColor:"#fff",
-							        cursor:         "wait"
-							    }
-							});
-						jQuery( "#submit_touch_payment_form" ).click();
-					});
-				</script>
-			</form>';
+           if (!empty($_REQUEST['status']) && $_REQUEST['status'] == 'sms-error') {
+               $html .= '<div class="woocommerce-error"><p>The code you have entered was incorrect. Please try again.</p></div>';
+           }
 
+            $html .= '<input type="text" name="sms-code" placeholder="Enter your code here"
+                    style="height:44px;margin-top:1px"><input type="submit" class="button-alt" id="submit_touch_payment_form" value="'
+                    . __('Pay via Touch Payments', 'woothemes') . '">
+                </div>
+            </form>';
+
+            return $html;
+
+        } else {
+            /**
+             * also put the token on the order
+             */
+            $redirectUrl = $this->redirect_url . $response->result->token;
+
+            return '<form action="' . $redirectUrl . '" method="post" id="touch_payment_form">
+                    <input type="submit" class="button-alt" id="submit_touch_payment_form" value="' . __(
+                'Pay via Touch Payments',
+                'woothemes'
+            ) . '" /> <a class="button cancel" href="' . $order->get_cancel_order_url() . '">' . __(
+                'Cancel order &amp; restore cart',
+                'woothemes'
+            ) . '</a>
+                    <script type="text/javascript">
+                        jQuery(function(){
+                            jQuery("body").block(
+                                {
+                                    message: "<img src=\"' . $woocommerce->plugin_url()
+            . '/assets/images/ajax-loader.gif\" alt=\"Redirecting...\" />' . __(
+                'Thank you for your order. We are now redirecting you to Touch Payments to make payment.',
+                'woothemes'
+            ) . '",
+                                    overlayCSS:
+                                    {
+                                        background: "#fff",
+                                        opacity: 0.6
+                                    },
+                                    css: {
+                                        padding:        20,
+                                        textAlign:      "center",
+                                        color:          "#555",
+                                        border:         "3px solid #aaa",
+                                        backgroundColor:"#fff",
+                                        cursor:         "wait"
+                                    }
+                                });
+                            jQuery( "#submit_touch_payment_form" ).click();
+                        });
+                    </script>
+                </form>';
+        }
     } // End generate_touch_form()
 
     function getTouchOrder(WC_Order $order)
@@ -448,11 +475,6 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
      */
     function receipt_page($order)
     {
-        echo '<p>' . __(
-                'Thank you for your order, please click the button below to pay with Touch Payments.',
-                'woothemes'
-            ) . '</p>';
-
         echo $this->generate_touch_form($order);
     } // End receipt_page()
 
@@ -510,7 +532,7 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
         $result = $this->api->getOrderByTokenStatus($data['token']);
         $order = new WC_Order($_SESSION[$data['token']]);
 
-        if (isset($result->error) || $result->result->status != 'pending') {
+        if (isset($result->error) || !in_array($result->result->status, array('new', 'pending'))) {
             $message = null;
             if (isset($result->reasonCancelled)) {
                 $message = 'Touch Payments returned and said:' . $result->reasonCancelled;
@@ -550,12 +572,36 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
              * - set a transaction ID
              * - set Order to paid
              */
-            $apprReturn = $this->api->approveOrder(
-                $data['token'],
-                $order->id,
-                $order->get_total() - $_SESSION['touch_fee']
-            );
+            if (empty($data['sms-code'])) {
+                $apprReturn = $this->api->approveOrder(
+                    $data['token'],
+                    $order->id,
+                    $order->get_total() - $_SESSION['touch_fee']
+                );
+            } else {
+                $apprReturn = $this->api->approveOrderBySmsCode(
+                    $data['token'],
+                    $order->id,
+                    $order->get_total() - $_SESSION['touch_fee'],
+                    $data['sms-code']
+                );
 
+                // If the code entered is invalid then we have to ask for the code again
+                if ($apprReturn->error && $apprReturn->error->code == -32000) {
+                    wp_redirect(
+                        add_query_arg(
+                            'key',
+                            $order->order_key,
+                            add_query_arg('order', $order->id,
+                                add_query_arg('status', 'sms-error',
+                                    get_permalink(get_option('woocommerce_pay_page_id'))
+                                )
+                            )
+                        )
+                    );
+                    exit;
+                }
+            }
 
             if ($apprReturn->result->status == 'approved') {
 
@@ -578,6 +624,8 @@ class WC_Gateway_Touch extends WC_Payment_Gateway
                 }
             }
         }
+
+        unset($_SESSION['current_token']);
 
         wp_redirect(
             add_query_arg(

@@ -35,7 +35,7 @@ class Touch_Client {
 
     /**
      * Check if Api is available at the time
-     * 
+     *
      * @return mixed
      */
     public function isApiActive()
@@ -44,7 +44,7 @@ class Touch_Client {
         return $this->_callMethod('apiActive', $data);
     }
     /**
-     * 
+     *
      * @param string $refNr
      * @param string $reason
      * @return type
@@ -56,7 +56,7 @@ class Touch_Client {
     }
 
     /**
-     * 
+     *
      * @param string $refNr
      * @param mixed $articleLines
      */
@@ -82,6 +82,12 @@ class Touch_Client {
     {
         $data = array($this->_apiKey, $token, $refNumber, $grandTotal);
         return $this->_callMethod('approveOrderByToken', $data);
+    }
+
+    public function approveOrderBySmsCode($token, $refNumber, $grandTotal, $smsCode)
+    {
+        $data = array($this->_apiKey, $token, $refNumber, $grandTotal, $smsCode);
+        return $this->_callMethod('approveOrderBySmsCode', $data);
     }
 
     public function getFee($grandTotal)

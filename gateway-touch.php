@@ -3,7 +3,7 @@
 	Plugin Name: Touch Payments Gateway
 	Plugin URI: http://touchpayments.com.au/
 	Description: Integrate Touch Payments in your WooCommerce shop.
-	Version: 1.0.1
+	Version: 1.1.0
 	Author: TouchPayments
 	Author URI: http://touchpayments.com.au/
 	Requires at least: 3.5
@@ -17,11 +17,6 @@ if ( ! function_exists( 'woothemes_queue_update' ) )
 	require_once( 'woo-includes/woo-functions.php' );
 
 require_once __DIR__ . '/lib/Touch/Api.php';
-
-/**
- * Plugin updates
- */
-woothemes_queue_update( plugin_basename( __FILE__ ), '557bf07293ad916f20c207c6c9cd15ff', '18596' );
 
 load_plugin_textdomain( 'wc_touch', false, trailingslashit( dirname( plugin_basename( __FILE__ ) ) ) );
 

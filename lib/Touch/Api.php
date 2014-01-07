@@ -82,5 +82,10 @@ class Touch_Api
         return $this->_touchClient->approveOrderByToken($token, $refNumber, $grandTotal);
     }
 
+    public function approveOrderBySmsCode($token, $refNumber, $grandTotal, $smsCode)
+    {
+        return $this->_touchClient->approveOrderBySmsCode($token, $refNumber, $grandTotal, $smsCode);
+    }
+
 
 }
